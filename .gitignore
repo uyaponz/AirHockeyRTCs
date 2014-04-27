@@ -1,0 +1,16 @@
+*.o
+*.so
+a.out
+
+*Skel.h
+*Skel.cpp
+*Stub.h
+*Stub.cpp
+
+*.pyc
+
+*.log
+
+.DS_Store
+.gitignore
+
