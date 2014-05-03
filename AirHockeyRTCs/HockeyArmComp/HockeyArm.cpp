@@ -21,6 +21,8 @@ static const double ARM_LEN1   = 558.5;
 static const double ARM_LEN2   = 319.45;
 static const double ARM_MLT_D  = 100.0;
 
+static const double ARM_RPM_ON_6V = 3000.0;
+
 // Module specification
 // <rtc-template block="module_spec">
 static const char* hockeyarm_spec[] =
@@ -54,7 +56,7 @@ HockeyArm::HockeyArm(RTC::Manager* manager)
       // </rtc-template>
       mp_x_(0), mp_y_(0), ac_(0)
 {
-    double rpm6v = 3000.0;
+    double rpm6v = ARM_RPM_ON_6V;
     mp_x_ = new MC_PEX361316(1,        // デバイス番号
                              2500,     // モーター1回転あたりのカウント数
                              1,        // 逓倍数
@@ -88,8 +90,18 @@ HockeyArm::HockeyArm(RTC::Manager* manager)
 
     ac_->start();
 
-    ArmPosition pos = {0.0, 400.0};
-    ac_->moveTo(pos);
+    /* アームを初期位置までもっていく */
+    mp_x_->setArmRPM(rpm6v/250);
+    mp_y_->setArmRPM(rpm6v/150);
+    ArmPosition initialPos = {0.0, 400.0};
+    ac_->moveTo(initialPos);
+    for (;;) {
+        ArmPosition pos = ac_->getArmPos();
+        double dist = sqrt(pow(initialPos.x - pos.x, 2) + pow(initialPos.y - pos.y, 2));
+        if (dist <= 100.0) { break; }
+    }
+    mp_x_->setArmRPM(rpm6v/25);
+    mp_y_->setArmRPM(rpm6v/15);
 }
 
 /*!
@@ -141,6 +153,26 @@ RTC::ReturnCode_t HockeyArm::onInitialize()
 
 RTC::ReturnCode_t HockeyArm::onFinalize()
 {
+    double rpm6v = ARM_RPM_ON_6V;
+
+    /* アームをまっすぐに戻す */
+    double initialAngleX = M_PI / 2.0;       // 90[deg]
+    double initialAngleY = 0.0;              //  0[deg]
+    double limitAngle = M_PI / 180.0 * 3.0;  //  3[deg]
+    mp_x_->setArmRPM(rpm6v/250);
+    mp_y_->setArmRPM(rpm6v/150);
+    mp_x_->moveTo(initialAngleX);
+    mp_y_->moveTo(initialAngleY);
+    for (;;) {
+        double angleX = mp_x_->getArmAngle();
+        double angleY = mp_y_->getArmAngle();
+        if (fabs(initialAngleX - angleX) <= limitAngle  &&
+            fabs(initialAngleY - angleY) <= limitAngle)
+        {
+            break;
+        }
+    }
+
     return RTC::RTC_OK;
 }
 
